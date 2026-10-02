@@ -244,7 +244,7 @@
     <main>
         <section class="hero">
             <h1>Live Vehicle Tracking</h1>
-            <p>Real-time GPS telemetry, route history, location context, and live news feeds — all in your browser.</p>
+            <p>Real-time GPS telemetry, route history, location context, and live news feeds in a browser-based dashboard.</p>
             <div class="cta-buttons">
                 <a href="transponder.html" class="btn btn-primary">Activate Transponder</a>
                 <a href="dashboard.html" class="btn btn-primary">Open Dashboard</a>
@@ -256,7 +256,7 @@
             <div class="feature-card">
                 <div class="feature-icon">📍</div>
                 <h3>Live GPS Tracking</h3>
-                <p>Real-time location updates broadcast via MQTT. Watch assets move on an interactive map.</p>
+                <p>Real-time location updates broadcast through the Tracker server with Socket.IO. Watch assets move on an interactive map.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🛣️</div>
@@ -275,8 +275,8 @@
             </div>
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
-                <h3>Zero Setup</h3>
-                <p>No backend, no database. Pure HTML + JavaScript. Open in any browser.</p>
+                <h3>Lightweight Setup</h3>
+                <p>Run the small Node.js server to connect transponders and the dashboard. No database is required.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔒</div>
@@ -294,7 +294,7 @@
                     <p>Simulates a vehicle broadcasting GPS location data.</p>
                     <ul style="margin-left: 20px; margin-top: 15px;">
                         <li>Requires device location permission</li>
-                        <li>Sends coordinates via MQTT broker</li>
+                        <li>Sends coordinates to the Tracker server with Socket.IO</li>
                         <li>Displays real-time speed and coordinates</li>
                     </ul>
                     <p style="margin-top: 20px;"><strong>Best on:</strong> Mobile with GPS or desktop with location spoofing</p>
@@ -325,13 +325,13 @@
 
             <h2 class="section-title">Architecture</h2>
             <div class="code-block">
-┌──────────────────────┐          MQTT Topic          ┌──────────────────────┐
+┌──────────────────────┐       Socket.IO events       ┌──────────────────────┐
 │  Transponder Page    │ ════════════════════════════ │   Dashboard Page     │
-│  (GPS Broadcast)     │  emapping/transponder/      │  (Live Map View)     │
-│                      │  telemetry                  │                      │
+│  (GPS Broadcast)     │                              │  (Live Map View)     │
+│                      │                              │                      │
 │ • Device GPS         │          {json}             │ • Leaflet Map        │
 │ • Location tracking  │       [lat, lng, speed]     │ • Route History      │
-│ • MQTT Publish       │                             │ • Place Names        │
+│ • Socket.IO Emit     │                             │ • Place Names        │
 └──────────────────────┘                             │ • News Headlines     │
                                                      └──────────────────────┘
             </div>
@@ -339,7 +339,7 @@
             <h2 class="section-title">Technology Stack</h2>
             <ul style="margin-left: 30px; line-height: 2;">
                 <li><strong>Mapping:</strong> Leaflet.js + OpenStreetMap</li>
-                <li><strong>Messaging:</strong> MQTT via HiveMQ public broker</li>
+                <li><strong>Messaging:</strong> Socket.IO over the Node.js server</li>
                 <li><strong>Geocoding:</strong> OpenStreetMap Nominatim (reverse geocoding)</li>
                 <li><strong>News:</strong> RSS2JSON bridge to BBC World News</li>
                 <li><strong>Frontend:</strong> Plain HTML, CSS, JavaScript (no build tools)</li>
@@ -352,12 +352,13 @@
             <div class="code-block">
 $ git clone https://github.com/Suok9/tracker.git
 $ cd tracker
-$ python -m http.server 8000
+$ npm install
+$ npm start
             </div>
             <p>Then open:</p>
             <ul style="margin-left: 30px; margin-top: 15px;">
-                <li>http://localhost:8000/transponder.html</li>
-                <li>http://localhost:8000/dashboard.html</li>
+                <li>http://localhost:3000/transponder.html</li>
+                <li>http://localhost:3000/dashboard.html</li>
             </ul>
         </section>
     </main>

@@ -15,6 +15,7 @@ This project contains a working browser-based tracking setup:
 - Auto-generated IDs in the format `A01`, `A02`, `A03`, etc.
 - Multiple transponder devices can register and be tracked simultaneously
 - Route history tracking per asset
+- Browser-side manual location updates and asset removal
 - Reverse geocoded place names and addresses
 - News panel that can be opened or closed from the dashboard
 - Live fleet monitor panel can be hidden or shown
@@ -45,13 +46,14 @@ Then open:
 
 ## Socket event flow
 
-- Transponder emits: `transponder:position`
-- Server broadcasts: `fleet:update` and `fleet:state`
-- Dashboard listens for the live fleet state and updates the map
+- Transponder registers with `transponder:register`; the server acknowledges its ID.
+- Transponder emits location updates with `transponder:position`.
+- Dashboard sends `dashboard:subscribe` and receives `fleet:state`.
+- Dashboard actions use `asset:set-location` and `asset:remove`; the server broadcasts updated `fleet:state`.
 
 ## Notes
 
-- This is a working demo for learning and prototyping.
+- This is a working demo for learning and prototyping. Run it through the Node.js server; opening the HTML files directly or using a static file server will not provide Socket.IO.
 - It is not production-grade fleet infrastructure.
 - Data is kept in memory on the server for the current runtime session.
 

@@ -1,436 +1,744 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Map Dashboard - Vehicle Tracking</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Map Dashboard - Vehicle Tracking</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 
-    <style>
-        :root {
-            --bg: #07111c;
-            --panel: rgba(10, 20, 31, 0.88);
-            --panel-border: rgba(148, 163, 184, 0.2);
-            --accent: #38bdf8;
-            --accent-2: #facc15;
-            --text: #e2e8f0;
-            --muted: #94a3b8;
-        }
+  <style>
+    :root {
+      --bg: #07111c;
+      --panel: rgba(10, 20, 31, 0.88);
+      --panel-border: rgba(148, 163, 184, 0.2);
+      --accent: #38bdf8;
+      --accent-2: #facc15;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, Helvetica, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
 
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
 
-        #info-overlay {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            z-index: 1000;
-            width: min(380px, calc(100vw - 28px));
-            background: var(--panel);
-            border: 1px solid var(--panel-border);
-            border-radius: 14px;
-            box-shadow: 0 12px 36px rgba(15, 23, 42, 0.5);
-            padding: 16px;
-            backdrop-filter: blur(6px);
-        }
+    #info-overlay {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1000;
+      width: min(420px, calc(100vw - 28px));
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+    }
 
-        #info-overlay.hidden {
-            display: none;
-        }
+    #info-overlay.hidden {
+      display: none;
+    }
 
-        h3 {
-            margin: 0 0 12px 0;
-            font-size: 1.2rem;
-        }
+    #news-panel.hidden {
+      display: none;
+    }
 
-        .context-box {
-            font-size: 0.92rem;
-            line-height: 1.5;
-            color: var(--text);
-        }
+    h3 {
+      margin: 0 0 12px;
+      font-size: 1.2rem;
+    }
 
-        .context-box strong {
-            color: var(--accent);
-        }
+    .section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(148,163,184,0.2);
+    }
 
-        .panel-section {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(148, 163, 184, 0.2);
-        }
+    .context-box {
+      font-size: 0.93rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
 
-        .news-toggle, .panel-toggle, .layer-button {
-            display: inline-block;
-            margin-top: 10px;
-            background: rgba(56, 189, 248, 0.12);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            color: var(--text);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
+    .context-box strong {
+      color: var(--accent);
+    }
 
-        .news-panel.hidden {
-            display: none;
-        }
+    .news-list, .asset-list {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+    }
 
-        .layer-controls {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
+    .news-list li, .asset-list li {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(148,163,184,0.15);
+    }
 
-        .news-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0 0;
-        }
+    .news-list a {
+      color: var(--text);
+      text-decoration: none;
+    }
 
-        .news-list li {
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-        }
+    .news-list a:hover { text-decoration: underline; }
 
-        .news-list a {
-            color: var(--text);
-            text-decoration: none;
-        }
+    .news-list small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+    }
 
-        .news-list a:hover {
-            text-decoration: underline;
-        }
+    .asset-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.55);
+      margin-bottom: 8px;
+    }
 
-        .news-list small {
-            color: var(--muted);
-            display: block;
-            margin-top: 4px;
-        }
+    .asset-list button, .route-button, .layer-button, .panel-button, .news-toggle, .manual-button {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
 
-        .asset-list {
-            list-style: none;
-            margin: 12px 0 0;
-            padding: 0;
-        }
+    .route-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
 
-        .asset-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            background: rgba(15, 23, 42, 0.5);
-        }
+    .route-form input,
+    .manual-location input,
+    .manual-location select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(148,163,184,0.25);
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
 
-        .asset-list button {
-            background: transparent;
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            color: var(--text);
-            border-radius: 6px;
-            cursor: pointer;
-            padding: 5px 8px;
-        }
+    .layer-controls, .actions-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
 
-        .vehicle-icon-style {
-            filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));
-            transition: transform 0.2s linear;
-        }
-    </style>
+    .manual-location {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .vehicle-icon-style {
+      filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));
+    }
+  </style>
 </head>
 <body>
-    <div id="info-overlay">
-        <h3>🚔 Live Fleet Monitor</h3>
-        <div id="live-data" class="context-box">Waiting for transponder ping...</div>
-        <div id="location-context" class="context-box panel-section"><strong>Location:</strong> awaiting signal...</div>
-        <div id="route-summary" class="context-box panel-section"><strong>Route:</strong> no route yet.</div>
+  <div id="info-overlay">
+    <h3>🚔 Live Fleet Monitor</h3>
 
-        <div class="panel-section">
-            <strong>Tracked assets:</strong>
-            <ul id="assetList" class="asset-list"></ul>
-        </div>
+    <div id="live-data" class="context-box">Waiting for transponder ping...</div>
 
-        <div id="news-panel" class="news-panel">
-            <div id="news-feed" class="context-box panel-section">
-                <strong>Related news:</strong>
-                <ul class="news-list"><li>Connecting live context feed...</li></ul>
-            </div>
-        </div>
-
-        <div style="display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap;">
-            <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
-            <button id="panelToggle" class="panel-toggle" type="button">Hide Panel</button>
-        </div>
-
-        <div class="layer-controls">
-            <button class="layer-button" data-layer="standard">Standard</button>
-            <button class="layer-button" data-layer="satellite">Satellite</button>
-            <button class="layer-button" data-layer="terrain">Terrain</button>
-        </div>
+    <div class="section">
+      <div id="location-context" class="context-box"><strong>Location:</strong> awaiting signal...</div>
     </div>
-    <div id="map"></div>
 
-    <script>
-        const map = L.map('map').setView([20, 0], 3);
+    <div class="section">
+      <div id="route-summary" class="context-box"><strong>Route:</strong> no route yet.</div>
+    </div>
 
-        const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
+    <div class="section">
+      <strong>Tracked assets:</strong>
+      <ul id="assetList" class="asset-list"></ul>
+    </div>
+
+    <div class="section">
+      <strong>Search location</strong>
+      <div class="route-form">
+        <input id="searchInput" type="text" placeholder="Search city, address or place" />
+        <button id="searchBtn" class="route-button" type="button">Search</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <strong>Route planner</strong>
+      <div class="route-form">
+        <input id="destinationInput" type="text" placeholder="Destination address or place" />
+        <button id="routeBtn" class="route-button" type="button">Create route</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <strong>Manual current location</strong>
+      <div class="manual-location">
+        <select id="manualAssetSelect"></select>
+        <input id="manualLat" type="number" step="0.000001" placeholder="Latitude" />
+        <input id="manualLng" type="number" step="0.000001" placeholder="Longitude" />
+        <button id="manualLocationBtn" class="manual-button" type="button">Update current location</button>
+      </div>
+    </div>
+
+    <div id="news-panel" class="section">
+      <div id="news-feed" class="context-box">
+        <strong>Related news:</strong>
+        <ul class="news-list"><li>Connecting live context feed...</li></ul>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
+      <button id="panelToggle" class="panel-button" type="button">Hide Panel</button>
+    </div>
+
+    <div class="layer-controls">
+      <button class="layer-button" data-layer="standard">Standard</button>
+      <button class="layer-button" data-layer="satellite">Satellite</button>
+      <button class="layer-button" data-layer="terrain">Terrain</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    const map = L.map('map').setView([20, 0], 3);
+
+    const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    });
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri',
+      maxZoom: 19
+    });
+
+    const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM',
+      maxZoom: 17
+    });
+
+    const layers = {
+      standard: standardLayer,
+      satellite: satelliteLayer,
+      terrain: terrainLayer
+    };
+
+    standardLayer.addTo(map);
+
+    const socket = io();
+    const markers = {};
+    const routeHistory = {};
+    const routeLayers = {};
+    const assetMap = new Map();
+
+    let destinationMarker = null;
+    let routePolyline = null;
+    let searchMarker = null;
+    let activeAssetId = null;
+    let locationRequestId = 0;
+    let lastLocationLookupKey = null;
+
+    const vehicleIcon = L.divIcon({
+      html: '<div style="width:18px;height:18px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 0 10px rgba(56,189,248,0.85);"></div>',
+      className: 'vehicle-icon-style',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      popupAnchor: [0, -12]
+    });
+
+    const newsToggleBtn = document.getElementById('newsToggle');
+    const newsPanel = document.getElementById('news-panel');
+    const panelToggleBtn = document.getElementById('panelToggle');
+    const infoOverlay = document.getElementById('info-overlay');
+    const assetList = document.getElementById('assetList');
+    const manualAssetSelect = document.getElementById('manualAssetSelect');
+    const searchInput = document.getElementById('searchInput');
+    const destinationInput = document.getElementById('destinationInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const routeBtn = document.getElementById('routeBtn');
+    const manualLocationBtn = document.getElementById('manualLocationBtn');
+
+    newsToggleBtn.addEventListener('click', () => {
+      const hidden = newsPanel.classList.toggle('hidden');
+      newsToggleBtn.textContent = hidden ? 'Show News' : 'Hide News';
+    });
+
+    panelToggleBtn.addEventListener('click', () => {
+      const hidden = infoOverlay.classList.toggle('hidden');
+      panelToggleBtn.textContent = hidden ? 'Show Panel' : 'Hide Panel';
+    });
+
+    document.querySelectorAll('.layer-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const selected = button.dataset.layer;
+        Object.entries(layers).forEach(([name, layer]) => {
+          if (name === selected) {
+            if (!map.hasLayer(layer)) layer.addTo(map);
+          } else if (map.hasLayer(layer)) {
+            map.removeLayer(layer);
+          }
         });
+      });
+    });
 
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: 19
-        });
+    function updateManualAssetSelector(assetData) {
+      const assets = Array.isArray(assetData) ? assetData : [];
+      if (!assets.some((asset) => asset.id === activeAssetId)) {
+        activeAssetId = assets.length ? assets[0].id : null;
+      }
+      manualAssetSelect.innerHTML = '';
 
-        const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM',
-            maxZoom: 17
-        });
+      assets.forEach((asset) => {
+        const option = document.createElement('option');
+        option.value = asset.id;
+        option.textContent = asset.label || asset.id;
+        if (!activeAssetId && asset.id) activeAssetId = asset.id;
+        if (activeAssetId === asset.id) option.selected = true;
+        manualAssetSelect.appendChild(option);
+      });
 
-        const layers = {
-            standard: standardLayer,
-            satellite: satelliteLayer,
-            terrain: terrainLayer
-        };
+      if (!manualAssetSelect.value && assets.length) {
+        manualAssetSelect.value = assets[0].id;
+      }
+    }
 
-        standardLayer.addTo(map);
+    function renderAssetList(assetData) {
+      assetList.innerHTML = '';
+      assetData.forEach((asset) => {
+        const li = document.createElement('li');
 
-        const socket = io();
-        const markers = {};
-        const routeHistory = {};
-        const routeLayers = {};
-
-        const vehicleIcon = L.divIcon({
-            html: '<div style="width:18px;height:18px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 0 10px rgba(56,189,248,0.85);"></div>',
-            className: 'vehicle-icon-style',
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-            popupAnchor: [0, -12]
-        });
-
-        const newsToggleBtn = document.getElementById('newsToggle');
-        const newsPanel = document.getElementById('news-panel');
-        const panelToggleBtn = document.getElementById('panelToggle');
-        const infoOverlay = document.getElementById('info-overlay');
-        const assetList = document.getElementById('assetList');
-
-        newsToggleBtn.addEventListener('click', () => {
-            const hidden = newsPanel.classList.toggle('hidden');
-            newsToggleBtn.textContent = hidden ? 'Show News' : 'Hide News';
-        });
-
-        panelToggleBtn.addEventListener('click', () => {
-            const hidden = infoOverlay.classList.toggle('hidden');
-            panelToggleBtn.textContent = hidden ? 'Show Panel' : 'Hide Panel';
-        });
-
-        document.querySelectorAll('.layer-button').forEach((button) => {
-            button.addEventListener('click', () => {
-                const selected = button.dataset.layer;
-                Object.entries(layers).forEach(([name, layer]) => {
-                    if (name === selected) {
-                        if (!map.hasLayer(layer)) {
-                            layer.addTo(map);
-                        }
-                    } else if (map.hasLayer(layer)) {
-                        map.removeLayer(layer);
-                    }
-                });
-            });
-        });
-
-        function renderAssetList(assets) {
-            assetList.innerHTML = '';
-            assets.forEach((asset) => {
-                const li = document.createElement('li');
-                const label = document.createElement('span');
-                label.textContent = `${asset.label || asset.id} • ${asset.lat ? asset.lat.toFixed(4) : 'n/a'}`;
-
-                const removeButton = document.createElement('button');
-                removeButton.textContent = 'Remove';
-                removeButton.addEventListener('click', () => {
-                    if (markers[asset.id]) {
-                        map.removeLayer(markers[asset.id]);
-                        delete markers[asset.id];
-                    }
-                    if (routeLayers[asset.id]) {
-                        map.removeLayer(routeLayers[asset.id]);
-                        delete routeLayers[asset.id];
-                    }
-                    if (routeHistory[asset.id]) {
-                        delete routeHistory[asset.id];
-                    }
-                    socket.emit('asset:remove', { id: asset.id });
-                });
-
-                li.appendChild(label);
-                li.appendChild(removeButton);
-                assetList.appendChild(li);
-            });
+        const info = document.createElement('span');
+        info.textContent = `${asset.label || asset.id} • ${Number.isFinite(asset.lat) ? asset.lat.toFixed(4) : 'n/a'}`;
+        if (asset.id === activeAssetId) {
+          info.style.color = '#facc15';
+          info.style.fontWeight = '700';
         }
 
-        function formatHeading(rawText, fallback = 'Location') {
-            return rawText && rawText.trim() ? rawText.trim() : fallback;
-        }
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
 
-        function getLocationLabel(address = {}) {
-            const parts = [
-                address.city,
-                address.town,
-                address.village,
-                address.municipality,
-                address.county,
-                address.state,
-                address.country
-            ].filter(Boolean);
-
-            return parts.length ? parts.slice(0, 4).join(', ') : 'Current location';
-        }
-
-        async function fetchLocationInfo(lat, lng) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
-
-            try {
-                const response = await fetch(url, {
-                    headers: { 'Accept-Language': 'en' }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Reverse geocoding unavailable');
-                }
-
-                const data = await response.json();
-                const label = getLocationLabel(data.address || {});
-                const raw = data.display_name || label;
-
-                document.getElementById('location-context').innerHTML = `
-                    <strong>Location:</strong> ${formatHeading(label, raw)}<br>
-                    <small>${raw}</small>
-                `;
-            } catch (error) {
-                document.getElementById('location-context').innerHTML = `
-                    <strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}
-                `;
-            }
-        }
-
-        function updateRouteHistory(id, lat, lng) {
-            if (!routeHistory[id]) {
-                routeHistory[id] = [];
-                routeLayers[id] = L.polyline([], {
-                    color: '#facc15',
-                    weight: 4,
-                    opacity: 0.9
-                }).addTo(map);
-            }
-
-            routeHistory[id].push([lat, lng]);
-            if (routeHistory[id].length > 80) {
-                routeHistory[id].shift();
-            }
-
-            routeLayers[id].setLatLngs(routeHistory[id]);
-
-            const totalPoints = routeHistory[id].length;
-            const start = routeHistory[id][0];
-            const end = routeHistory[id][totalPoints - 1];
-
-            if (start && end) {
-                const distanceKm = ((L.latLng(start).distanceTo(L.latLng(end)) / 1000)).toFixed(1);
-                document.getElementById('route-summary').innerHTML = `
-                    <strong>Route:</strong> ${totalPoints} points tracked<br>
-                    <small>Last segment: ${distanceKm} km</small>
-                `;
-            }
-        }
-
-        async function fetchNewsContext() {
-            const feedUrl = 'https://api.rss2json.com/v1/api.json?rss_url=https://feeds.bbci.co.uk/news/world/rss.xml';
-
-            try {
-                const res = await fetch(feedUrl);
-                if (!res.ok) throw new Error('News feed unavailable');
-
-                const data = await res.json();
-                const articles = data.items ? data.items.slice(0, 4) : [];
-
-                if (!articles.length) {
-                    throw new Error('No news items');
-                }
-
-                const rendered = articles.map((item) => `
-                    <li>
-                        <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title || 'News update'}</a>
-                        <small>${item.author || 'World News'}</small>
-                    </li>
-                `).join('');
-
-                document.getElementById('news-feed').innerHTML = `
-                    <strong>Related news:</strong>
-                    <ul class="news-list">${rendered}</ul>
-                `;
-            } catch (error) {
-                document.getElementById('news-feed').innerHTML = `
-                    <strong>Related news:</strong>
-                    <ul class="news-list"><li>Live context feed unavailable right now.</li></ul>
-                `;
-            }
-        }
-
-        socket.on('connect', () => {
-            socket.emit('dashboard:subscribe');
-            fetchNewsContext();
+        const selectBtn = document.createElement('button');
+        selectBtn.textContent = 'Select';
+        selectBtn.addEventListener('click', () => {
+          activeAssetId = asset.id;
+          updateManualAssetSelector(assetData);
+          renderAssetList(assetData);
+          if (Number.isFinite(asset.lat) && Number.isFinite(asset.lng)) {
+            map.setView([asset.lat, asset.lng], 16);
+          }
         });
 
-        socket.on('fleet:state', (assets) => {
-            const assetListData = Array.isArray(assets) ? assets : [];
-            renderAssetList(assetListData);
-
-            assetListData.forEach((asset) => {
-                const { id, label, lat, lng, speed, timestamp } = asset;
-                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-                    return;
-                }
-
-                document.getElementById('live-data').innerHTML = `
-                    <strong>Asset:</strong> ${label || id}<br>
-                    <strong>ID:</strong> ${id}<br>
-                    <strong>Lat:</strong> ${lat.toFixed(5)}<br>
-                    <strong>Lng:</strong> ${lng.toFixed(5)}<br>
-                    <strong>Speed:</strong> ${Math.round((speed || 0) * 3.6)} km/h<br>
-                    <strong>Last ping:</strong> ${new Date(timestamp || Date.now()).toLocaleTimeString()}
-                `;
-
-                updateRouteHistory(id, lat, lng);
-                fetchLocationInfo(lat, lng);
-
-                if (markers[id]) {
-                    markers[id].setLatLng([lat, lng]);
-                } else {
-                    const m = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map);
-                    markers[id] = m;
-                    m.bindPopup(`<b>Asset ID:</b> ${label || id}<br><span style="color:gray;">Transponder Active</span>`).openPopup();
-                }
-
-                map.setView([lat, lng], 16);
-            });
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', () => {
+          if (markers[asset.id]) map.removeLayer(markers[asset.id]);
+          if (routeLayers[asset.id]) map.removeLayer(routeLayers[asset.id]);
+          delete markers[asset.id];
+          delete routeLayers[asset.id];
+          delete routeHistory[asset.id];
+          socket.emit('asset:remove', { id: asset.id });
         });
-    </script>
+
+        row.appendChild(selectBtn);
+        row.appendChild(removeBtn);
+        li.appendChild(info);
+        li.appendChild(row);
+        assetList.appendChild(li);
+      });
+    }
+
+    function formatHeading(rawText, fallback = 'Location') {
+      return typeof rawText === 'string' && rawText.trim() ? rawText.trim() : fallback;
+    }
+
+    function getLocationLabel(address = {}) {
+      const parts = [
+        address.city,
+        address.town,
+        address.village,
+        address.municipality,
+        address.county,
+        address.state,
+        address.country
+      ].filter(Boolean);
+
+      return parts.length ? parts.slice(0, 4).join(', ') : 'Current location';
+    }
+
+    async function fetchLocationInfo(lat, lng, assetId) {
+      const lookupKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if (lookupKey === lastLocationLookupKey) return;
+      lastLocationLookupKey = lookupKey;
+      const requestId = ++locationRequestId;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+      try {
+        const response = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        if (!response.ok) throw new Error('Reverse geocoding unavailable');
+        const data = await response.json();
+        const label = getLocationLabel(data.address || {});
+        const raw = data.display_name || label;
+        if (requestId !== locationRequestId || assetId !== activeAssetId) return;
+        const context = document.getElementById('location-context');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Location:';
+        const details = document.createElement('small');
+        details.textContent = String(raw);
+        context.replaceChildren(heading, document.createTextNode(` ${formatHeading(label, raw)}`), document.createElement('br'), details);
+      } catch (error) {
+        if (requestId !== locationRequestId || assetId !== activeAssetId) return;
+        const context = document.getElementById('location-context');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Location:';
+        context.replaceChildren(heading, document.createTextNode(` ${lat.toFixed(4)}, ${lng.toFixed(4)}`));
+      }
+    }
+
+    function updateRouteHistory(id, lat, lng, history) {
+      if (!routeHistory[id]) {
+        routeHistory[id] = [];
+        routeLayers[id] = L.polyline([], {
+          color: '#facc15',
+          weight: 4,
+          opacity: 0.9
+        }).addTo(map);
+      }
+
+      if (Array.isArray(history) && history.length) {
+        routeHistory[id] = history
+          .filter((point) => Array.isArray(point) && point.length >= 2 &&
+            validCoordinates(point[0], point[1]))
+          .slice(-80);
+      } else {
+        routeHistory[id].push([lat, lng]);
+        if (routeHistory[id].length > 80) routeHistory[id].shift();
+      }
+
+      routeLayers[id].setLatLngs(routeHistory[id]);
+
+      const totalPoints = routeHistory[id].length;
+      const start = routeHistory[id][0];
+      const end = routeHistory[id][totalPoints - 1];
+
+      if (start && end && !routePolyline) {
+        const distanceKm = ((L.latLng(start).distanceTo(L.latLng(end)) / 1000)).toFixed(1);
+        document.getElementById('route-summary').innerHTML =
+          `<strong>Route:</strong> ${totalPoints} points tracked<br><small>Last segment: ${distanceKm} km</small>`;
+      }
+    }
+
+    function clearRoute() {
+      if (routePolyline) {
+        map.removeLayer(routePolyline);
+        routePolyline = null;
+      }
+      if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+        destinationMarker = null;
+      }
+      document.getElementById('route-summary').innerHTML = '<strong>Route:</strong> no route yet.';
+    }
+
+    async function geocodeLocation(query) {
+      const encoded = encodeURIComponent(query);
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encoded}`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      if (!res.ok) throw new Error('Geocoding failed');
+      const data = await res.json();
+      if (!data || !data.length) throw new Error('No location found');
+      return data[0];
+    }
+
+    function createPopupContent(title, detail) {
+      const content = document.createElement('div');
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      content.appendChild(heading);
+      if (detail) {
+        const description = document.createElement('div');
+        description.textContent = detail;
+        content.appendChild(description);
+      }
+      return content;
+    }
+
+    function validCoordinates(lat, lng) {
+      return Number.isFinite(lat) && Number.isFinite(lng) &&
+        lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+
+    function calculateBearing(start, end) {
+      const lat1 = start.lat * Math.PI / 180;
+      const lat2 = end.lat * Math.PI / 180;
+      const dLon = (end.lng - start.lng) * Math.PI / 180;
+      const y = Math.sin(dLon) * Math.cos(lat2);
+      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+      const angle = Math.atan2(y, x) * 180 / Math.PI;
+      return (angle + 360) % 360;
+    }
+
+    async function createRouteToDestination(destinationQuery) {
+      const assets = Array.isArray(assetMap.get('list')) ? assetMap.get('list') : [];
+      const selected = assets.find((a) => a.id === activeAssetId) || assets[0];
+      if (!selected || !Number.isFinite(selected.lat) || !Number.isFinite(selected.lng)) {
+        alert('Select a tracked asset with a valid current location first.');
+        return;
+      }
+
+      try {
+        const result = await geocodeLocation(destinationQuery);
+        const end = { lat: Number(result.lat), lng: Number(result.lon) };
+        const start = { lat: Number(selected.lat), lng: Number(selected.lng) };
+        if (!validCoordinates(end.lat, end.lng) || !validCoordinates(start.lat, start.lng)) {
+          throw new Error('Invalid route coordinates');
+        }
+
+        const routeUrl = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+        const response = await fetch(routeUrl);
+        if (!response.ok) throw new Error('Route not available');
+
+        const data = await response.json();
+        const route = data.routes && data.routes[0];
+        if (!route) throw new Error('No route found');
+
+        const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        if (!coords.length || coords.some(([lat, lng]) => !validCoordinates(lat, lng))) {
+          throw new Error('Invalid route geometry');
+        }
+
+        const nextRoutePolyline = L.polyline(coords, { color: '#38bdf8', weight: 5, opacity: 0.9 });
+        const nextDestinationMarker = L.marker([end.lat, end.lng]);
+        nextDestinationMarker.bindPopup(createPopupContent('Destination', result.display_name));
+        if (routePolyline) map.removeLayer(routePolyline);
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        routePolyline = nextRoutePolyline.addTo(map);
+        destinationMarker = nextDestinationMarker.addTo(map).openPopup();
+
+        const distanceKm = (route.distance / 1000).toFixed(1);
+        const durationMin = Math.max(1, Math.round(route.duration / 60));
+        const bearing = calculateBearing(start, end);
+
+        document.getElementById('route-summary').innerHTML =
+          `<strong>Route:</strong> ${distanceKm} km • ${durationMin} min • Bearing ${bearing.toFixed(0)}°`;
+
+        map.fitBounds(routePolyline.getBounds(), { padding: [60, 60] });
+      } catch (error) {
+        alert('Unable to create route. Try a different destination.');
+      }
+    }
+
+    async function fetchNewsContext() {
+      const feedUrl = 'https://api.rss2json.com/v1/api.json?rss_url=https://feeds.bbci.co.uk/news/world/rss.xml';
+      try {
+        const res = await fetch(feedUrl);
+        if (!res.ok) throw new Error('News feed unavailable');
+        const data = await res.json();
+        const articles = Array.isArray(data.items) ? data.items.slice(0, 4) : [];
+        if (!articles.length) throw new Error('No news items');
+
+        const list = document.createElement('ul');
+        list.className = 'news-list';
+        articles.forEach((item) => {
+          const li = document.createElement('li');
+          const link = document.createElement('a');
+          let articleUrl;
+          try {
+            articleUrl = new URL(item.link);
+          } catch (error) {
+            return;
+          }
+          if (articleUrl.protocol !== 'https:' && articleUrl.protocol !== 'http:') return;
+          link.href = articleUrl.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = item.title || 'News update';
+          const author = document.createElement('small');
+          author.textContent = item.author || 'World News';
+          li.append(link, author);
+          list.appendChild(li);
+        });
+        const feed = document.getElementById('news-feed');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Related news:';
+        feed.replaceChildren(heading, list);
+      } catch (error) {
+        document.getElementById('news-feed').innerHTML =
+          '<strong>Related news:</strong><ul class="news-list"><li>Live context feed unavailable right now.</li></ul>';
+      }
+    }
+
+    async function geocodeAndCenter(query) {
+      try {
+        const result = await geocodeLocation(query);
+        const lat = Number(result.lat);
+        const lng = Number(result.lon);
+        if (!validCoordinates(lat, lng)) throw new Error('Invalid location coordinates');
+
+        map.setView([lat, lng], 13);
+        if (searchMarker) map.removeLayer(searchMarker);
+        searchMarker = L.marker([lat, lng]).addTo(map)
+          .bindPopup(createPopupContent('Search result', result.display_name))
+          .openPopup();
+      } catch (error) {
+        alert('Location not found. Try a more specific place name.');
+      }
+    }
+
+    searchBtn.addEventListener('click', () => {
+      const query = searchInput.value.trim();
+      if (!query) return;
+      geocodeAndCenter(query);
+    });
+
+    routeBtn.addEventListener('click', () => {
+      const query = destinationInput.value.trim();
+      if (!query) return;
+      createRouteToDestination(query);
+    });
+
+    manualLocationBtn.addEventListener('click', () => {
+      const selectedId = manualAssetSelect.value;
+      const latInput = document.getElementById('manualLat').value.trim();
+      const lngInput = document.getElementById('manualLng').value.trim();
+      const lat = Number(latInput);
+      const lng = Number(lngInput);
+
+      if (!selectedId || !latInput || !lngInput || !validCoordinates(lat, lng)) {
+        alert('Choose an asset and enter valid latitude and longitude.');
+        return;
+      }
+
+      socket.emit('asset:set-location', {
+        id: selectedId,
+        lat,
+        lng,
+        label: selectedId
+      });
+
+      const asset = assetMap.get('list')?.find((a) => a.id === selectedId);
+      if (asset) {
+        asset.lat = lat;
+        asset.lng = lng;
+        asset.timestamp = Date.now();
+      }
+
+      map.setView([lat, lng], 16);
+      if (markers[selectedId]) {
+        markers[selectedId].bindPopup(createPopupContent(selectedId, 'Manual location update')).openPopup();
+      }
+    });
+
+    socket.on('connect', () => {
+      socket.emit('dashboard:subscribe');
+      fetchNewsContext();
+    });
+
+    socket.on('fleet:state', (assets) => {
+      const assetListData = Array.isArray(assets) ? assets : [];
+      const hadMarkers = Object.keys(markers).length > 0;
+      assetMap.set('list', assetListData);
+      updateManualAssetSelector(assetListData);
+      renderAssetList(assetListData);
+
+      const validAssets = assetListData.filter((asset) =>
+        asset && typeof asset.id === 'string' && validCoordinates(asset.lat, asset.lng));
+      const presentIds = new Set(validAssets.map((asset) => asset.id));
+      Object.keys(markers).forEach((id) => {
+        if (presentIds.has(id)) return;
+        map.removeLayer(markers[id]);
+        if (routeLayers[id]) map.removeLayer(routeLayers[id]);
+        delete markers[id];
+        delete routeLayers[id];
+        delete routeHistory[id];
+      });
+
+      validAssets.forEach((asset) => {
+        const { id, label, lat, lng, history } = asset;
+        updateRouteHistory(id, lat, lng, history);
+
+        if (markers[id]) {
+          markers[id].setLatLng([lat, lng]);
+        } else {
+          const marker = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map);
+          markers[id] = marker;
+          marker.bindPopup(createPopupContent(`Asset ID: ${label || id}`, 'Transponder Active'));
+        }
+      });
+
+      const selectedAsset = validAssets.find((asset) => asset.id === activeAssetId) || validAssets[0];
+      if (selectedAsset) {
+        const { id, label, lat, lng, speed, timestamp } = selectedAsset;
+        const liveData = document.getElementById('live-data');
+        liveData.replaceChildren();
+        [
+          ['Asset:', label || id],
+          ['ID:', id],
+          ['Lat:', lat.toFixed(5)],
+          ['Lng:', lng.toFixed(5)],
+          ['Speed:', `${Math.round((speed || 0) * 3.6)} km/h`],
+          ['Last ping:', new Date(timestamp || Date.now()).toLocaleTimeString()]
+        ].forEach(([name, value]) => {
+          const line = document.createElement('div');
+          const heading = document.createElement('strong');
+          heading.textContent = name;
+          line.append(heading, document.createTextNode(` ${value}`));
+          liveData.appendChild(line);
+        });
+        if (id !== activeAssetId) {
+          activeAssetId = id;
+          updateManualAssetSelector(assetListData);
+          renderAssetList(assetListData);
+        }
+        fetchLocationInfo(lat, lng, id);
+      } else {
+        document.getElementById('live-data').textContent = 'Waiting for transponder ping...';
+        locationRequestId += 1;
+        lastLocationLookupKey = null;
+        if (!routePolyline) {
+          document.getElementById('route-summary').innerHTML = '<strong>Route:</strong> no route yet.';
+        }
+        const context = document.getElementById('location-context');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Location:';
+        context.replaceChildren(heading, document.createTextNode(' awaiting signal...'));
+      }
+
+      if (!hadMarkers && validAssets.length === 1) {
+        map.setView([validAssets[0].lat, validAssets[0].lng], 16);
+      } else if (!hadMarkers && validAssets.length > 1) {
+        map.fitBounds(L.latLngBounds(validAssets.map((asset) => [asset.lat, asset.lng])), { padding: [40, 40] });
+      }
+    });
+  </script>
 </body>
 </html>

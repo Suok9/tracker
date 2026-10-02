@@ -53,10 +53,10 @@
 
     <div class="input-wrap">
         <label for="assetId">Asset ID</label><br>
-        <input id="assetId" type="text" placeholder="Auto-generated A01" value="A01" />
+        <input id="assetId" type="text" placeholder="Leave blank to auto-generate an ID" />
     </div>
 
-    <button class="btn" onclick="startTransponder()">Activate Transponder</button>
+    <button id="startButton" class="btn" onclick="startTransponder()">Activate Transponder</button>
     <div id="status" class="status">Status: Idle</div>
     <div id="telemetry"></div>
 
@@ -64,59 +64,78 @@
         const socket = io();
         let watchId = null;
 
-        function generateAutoId() {
-            const next = Number(localStorage.getItem('trackerNextAsset') || 1);
-            const id = `A${String(next).padStart(2, '0')}`;
-            localStorage.setItem('trackerNextAsset', String(next + 1));
-            return id;
-        }
-
         function updateStatus(message) {
             document.getElementById('status').innerText = message;
         }
 
         function startTransponder() {
             const input = document.getElementById('assetId');
-            const assetId = (input.value || '').trim() || generateAutoId();
-            input.value = assetId;
+            const startButton = document.getElementById('startButton');
+            const requestedId = input.value.trim();
             updateStatus('Status: Connecting to tracker...');
-
-            socket.emit('transponder:register', { id: assetId, label: assetId });
 
             if (!navigator.geolocation) {
                 updateStatus('Status: GPS not supported in this browser');
                 return;
             }
 
-            watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                    const payload = {
-                        id: assetId,
-                        label: assetId,
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                        speed: position.coords.speed || 0,
-                        timestamp: Date.now()
-                    };
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
 
-                    socket.emit('transponder:position', payload);
+            startButton.disabled = true;
+            socket.timeout(10000).emit(
+                'transponder:register',
+                { id: requestedId, label: requestedId },
+                (error, response) => {
+                    startButton.disabled = false;
+                    if (error || !response || !response.ok || !response.id) {
+                        updateStatus('Status: Unable to connect to tracker');
+                        return;
+                    }
 
-                    document.getElementById('telemetry').innerHTML = `
-                        <p><strong>Asset ID:</strong> ${payload.id}</p>
-                        <p><strong>Lat:</strong> ${payload.lat.toFixed(5)}</p>
-                        <p><strong>Lng:</strong> ${payload.lng.toFixed(5)}</p>
-                        <p><strong>Speed:</strong> ${Math.round(payload.speed * 3.6)} km/h</p>
-                    `;
+                    const assetId = response.id;
+                    input.value = assetId;
+                    watchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            const payload = {
+                                id: assetId,
+                                label: assetId,
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude,
+                                speed: position.coords.speed || 0,
+                                timestamp: Date.now()
+                            };
 
-                    updateStatus('Status: Transponder ACTIVE & Broadcasting');
-                },
-                (error) => {
-                    updateStatus(`Status: GPS Error: ${error.message}`);
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 10000
+                            socket.emit('transponder:position', payload);
+
+                            const telemetry = document.getElementById('telemetry');
+                            telemetry.replaceChildren();
+                            [
+                                ['Asset ID:', payload.id],
+                                ['Lat:', payload.lat.toFixed(5)],
+                                ['Lng:', payload.lng.toFixed(5)],
+                                ['Speed:', `${Math.round(payload.speed * 3.6)} km/h`]
+                            ].forEach(([label, value]) => {
+                                const line = document.createElement('p');
+                                const strong = document.createElement('strong');
+                                strong.textContent = `${label} `;
+                                line.append(strong, document.createTextNode(value));
+                                telemetry.appendChild(line);
+                            });
+
+                            updateStatus('Status: Transponder ACTIVE & Broadcasting');
+                        },
+                        (gpsError) => {
+                            updateStatus(`Status: GPS Error: ${gpsError.message}`);
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            maximumAge: 0,
+                            timeout: 10000
+                        }
+                    );
                 }
             );
         }
