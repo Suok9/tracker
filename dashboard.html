@@ -39,7 +39,7 @@
             top: 14px;
             right: 14px;
             z-index: 1000;
-            width: min(360px, calc(100vw - 28px));
+            width: min(380px, calc(100vw - 28px));
             background: var(--panel);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
@@ -67,6 +67,21 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .news-toggle {
+            display: inline-block;
+            margin-top: 10px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .news-panel.hidden {
+            display: none;
         }
 
         .news-list {
@@ -108,10 +123,15 @@
         <div id="live-data" class="context-box">Waiting for transponder ping...</div>
         <div id="location-context" class="context-box panel-section"><strong>Location:</strong> awaiting signal...</div>
         <div id="route-summary" class="context-box panel-section"><strong>Route:</strong> no route yet.</div>
-        <div id="news-feed" class="context-box panel-section">
-            <strong>Related news:</strong>
-            <ul class="news-list"><li>Connecting live context feed...</li></ul>
+
+        <div id="news-panel" class="news-panel">
+            <div id="news-feed" class="context-box panel-section">
+                <strong>Related news:</strong>
+                <ul class="news-list"><li>Connecting live context feed...</li></ul>
+            </div>
         </div>
+
+        <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
     </div>
     <div id="map"></div>
 
@@ -134,6 +154,14 @@
             iconSize: [18, 18],
             iconAnchor: [9, 9],
             popupAnchor: [0, -12]
+        });
+
+        const newsToggleBtn = document.getElementById('newsToggle');
+        const newsPanel = document.getElementById('news-panel');
+
+        newsToggleBtn.addEventListener('click', () => {
+            const hidden = newsPanel.classList.toggle('hidden');
+            newsToggleBtn.textContent = hidden ? 'Show News' : 'Hide News';
         });
 
         function formatHeading(rawText, fallback = 'Location') {
@@ -252,13 +280,14 @@
         socket.on('fleet:state', (assets) => {
             const assetList = Array.isArray(assets) ? assets : [];
             assetList.forEach((asset) => {
-                const { id, lat, lng, speed, timestamp } = asset;
+                const { id, label, lat, lng, speed, timestamp } = asset;
                 if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
                     return;
                 }
 
                 document.getElementById('live-data').innerHTML = `
-                    <strong>Asset:</strong> ${id}<br>
+                    <strong>Asset:</strong> ${label || id}<br>
+                    <strong>ID:</strong> ${id}<br>
                     <strong>Lat:</strong> ${lat.toFixed(5)}<br>
                     <strong>Lng:</strong> ${lng.toFixed(5)}<br>
                     <strong>Speed:</strong> ${Math.round((speed || 0) * 3.6)} km/h<br>
@@ -271,9 +300,9 @@
                 if (markers[id]) {
                     markers[id].setLatLng([lat, lng]);
                 } else {
-                    markers[id] = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map)
-                        .bindPopup(`<b>Asset ID:</b> ${id}<br><span style="color:gray;">Transponder Active</span>`)
-                        .openPopup();
+                    const m = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map);
+                    markers[id] = m;
+                    m.bindPopup(`<b>Asset ID:</b> ${label || id}<br><span style="color:gray;">Transponder Active</span>`).openPopup();
                 }
 
                 map.setView([lat, lng], 16);

@@ -26,7 +26,9 @@ app.get('/health', (req, res) => {
 });
 
 function normalizeAssetId(value) {
-  return String(value || 'asset-vehicle-01');
+  const raw = String(value || '').trim();
+  if (!raw) return `asset-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  return raw;
 }
 
 function buildAssetRecord(data) {
@@ -60,26 +62,35 @@ function buildAssetRecord(data) {
   return next;
 }
 
+function emitFleetState() {
+  io.emit('fleet:state', Array.from(assets.values()));
+}
+
 io.on('connection', (socket) => {
   socket.on('dashboard:subscribe', () => {
     socket.emit('fleet:state', Array.from(assets.values()));
   });
 
-  socket.on('transponder:register', ({ id } = {}) => {
+  socket.on('transponder:register', ({ id, label } = {}) => {
     const assetId = normalizeAssetId(id);
 
     if (!assets.has(assetId)) {
       assets.set(assetId, {
         id: assetId,
+        label: label || assetId,
         lat: 0,
         lng: 0,
         speed: 0,
         timestamp: Date.now(),
         history: []
       });
+    } else {
+      const current = assets.get(assetId);
+      current.label = label || current.label || assetId;
+      assets.set(assetId, current);
     }
 
-    socket.emit('fleet:state', Array.from(assets.values()));
+    emitFleetState();
   });
 
   socket.on('transponder:position', (payload) => {
@@ -88,13 +99,20 @@ io.on('connection', (socket) => {
       return;
     }
 
-    assets.set(normalized.id, normalized);
-    io.emit('fleet:update', normalized);
-    io.emit('fleet:state', Array.from(assets.values()));
+    const existing = assets.get(normalized.id) || { id: normalized.id, label: normalized.id, history: [] };
+    const updated = {
+      ...existing,
+      ...normalized,
+      label: payload.label || existing.label || normalized.id,
+      history: normalized.history
+    };
+
+    assets.set(normalized.id, updated);
+    emitFleetState();
   });
 
   socket.on('disconnect', () => {
-    // no-op; asset state remains until replaced or cleared
+    // no-op
   });
 });
 
