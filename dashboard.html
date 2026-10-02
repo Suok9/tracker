@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Map Dashboard - Vehicle Tracking</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/mqtt@5.11.1/dist/mqtt.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        #info-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 250px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .vehicle-icon-style {
+            filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.4));
+            transition: transform 0.2s linear;
+        }
+    </style>
+</head>
+<body>
+    <div id="info-overlay">
+        <h3>🚔 Live Fleet Monitor</h3>
+        <div id="live-data">Waiting for transponder ping...</div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+        const map = L.map('map').setView([0, 0], 2);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        const vehicleIcon = L.divIcon({
+            html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a8ff;border:3px solid white;box-shadow:0 0 10px rgba(0,168,255,0.8);"></div>',
+            className: 'vehicle-icon-style',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+            popupAnchor: [0, -12]
+        });
+
+        const markers = {};
+
+        const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
+
+        client.on('connect', () => {
+            console.log('Connected to data stream.');
+            client.subscribe('emapping/transponder/telemetry');
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                const { id, lat, lng, speed } = data;
+
+                document.getElementById('live-data').innerHTML = `
+                    <strong>Asset:</strong> ${id}<br>
+                    <strong>Lat:</strong> ${lat.toFixed(5)}<br>
+                    <strong>Lng:</strong> ${lng.toFixed(5)}<br>
+                    <strong>Speed:</strong> ${Math.round(speed * 3.6)} km/h
+                `;
+
+                if (markers[id]) {
+                    markers[id].setLatLng([lat, lng]);
+                } else {
+                    markers[id] = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map)
+                        .bindPopup(`<b>Asset ID:</b> ${id}<br><span style="color:gray;">Transponder Active</span>`)
+                        .openPopup();
+
+                    map.setView([lat, lng], 16);
+                }
+            } catch (error) {
+                console.error('Invalid MQTT payload:', error);
+            }
+        });
+    </script>
+</body>
+</html>
