@@ -10,30 +10,100 @@
     <script src="https://unpkg.com/mqtt@5.11.1/dist/mqtt.min.js"></script>
 
     <style>
+        :root {
+            --bg: #07111c;
+            --panel: rgba(10, 20, 31, 0.88);
+            --panel-border: rgba(148, 163, 184, 0.2);
+            --accent: #38bdf8;
+            --accent-2: #facc15;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --success: #4ade80;
+        }
+
         html, body {
             margin: 0;
             padding: 0;
             height: 100%;
-            font-family: sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--bg);
+            color: var(--text);
         }
+
         #map {
             height: 100vh;
             width: 100%;
         }
+
         #info-overlay {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 14px;
+            right: 14px;
             z-index: 1000;
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            max-width: 250px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            width: min(350px, calc(100vw - 28px));
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            box-shadow: 0 12px 36px rgba(15, 23, 42, 0.5);
+            padding: 16px;
+            backdrop-filter: blur(6px);
         }
+
+        h3 {
+            margin: 0 0 12px 0;
+            font-size: 1.2rem;
+        }
+
+        .panel-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .context-box {
+            font-size: 0.92rem;
+            line-height: 1.55;
+            color: var(--text);
+        }
+
+        .context-box strong {
+            color: var(--accent);
+        }
+
+        .news-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0;
+        }
+
+        .news-list li {
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .news-list li:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .news-list a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .news-list a:hover {
+            text-decoration: underline;
+        }
+
+        .news-list small {
+            color: var(--muted);
+            display: block;
+            margin-top: 4px;
+        }
+
         .vehicle-icon-style {
-            filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.4));
+            filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));
             transition: transform 0.2s linear;
         }
     </style>
@@ -41,8 +111,24 @@
 <body>
     <div id="info-overlay">
         <h3>🚔 Live Fleet Monitor</h3>
-        <div id="live-data">Waiting for transponder ping...</div>
+        <div id="live-data" class="context-box">Waiting for transponder ping...</div>
+
+        <div id="location-context" class="context-box panel-section">
+            <strong>Location:</strong> awaiting signal...
+        </div>
+
+        <div id="route-summary" class="context-box panel-section">
+            <strong>Route:</strong> no route yet.
+        </div>
+
+        <div id="news-feed" class="context-box panel-section">
+            <strong>Related news:</strong>
+            <ul class="news-list">
+                <li>Connecting live context feed...</li>
+            </ul>
+        </div>
     </div>
+
     <div id="map"></div>
 
     <script>
@@ -55,7 +141,7 @@
         }).addTo(map);
 
         const vehicleIcon = L.divIcon({
-            html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a8ff;border:3px solid white;box-shadow:0 0 10px rgba(0,168,255,0.8);"></div>',
+            html: '<div style="width:18px;height:18px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 0 10px rgba(56,189,248,0.85);"></div>',
             className: 'vehicle-icon-style',
             iconSize: [18, 18],
             iconAnchor: [9, 9],
@@ -63,25 +149,150 @@
         });
 
         const markers = {};
+        const routeHistory = {};
+        const routeLayers = {};
+
+        const locationContextEl = document.getElementById('location-context');
+        const routeSummaryEl = document.getElementById('route-summary');
+        const newsFeedEl = document.getElementById('news-feed');
+
+        function formatHeading(rawText, fallback = 'Location') {
+            return rawText && rawText.trim() ? rawText.trim() : fallback;
+        }
+
+        function getLocationLabel(address = {}) {
+            const parts = [
+                address.city,
+                address.town,
+                address.village,
+                address.municipality,
+                address.county,
+                address.state,
+                address.country
+            ].filter(Boolean);
+
+            return parts.length ? parts.slice(0, 4).join(', ') : 'Current location';
+        }
+
+        async function fetchLocationInfo(lat, lng) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept-Language': 'en'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Reverse geocoding unavailable');
+                }
+
+                const data = await response.json();
+                const label = getLocationLabel(data.address || {});
+                const raw = data.display_name || label;
+
+                locationContextEl.innerHTML = `
+                    <strong>Location:</strong> ${formatHeading(label, raw)}<br>
+                    <small>${raw}</small>
+                `;
+            } catch (error) {
+                locationContextEl.innerHTML = `
+                    <strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                `;
+            }
+        }
+
+        function updateRouteHistory(id, lat, lng) {
+            if (!routeHistory[id]) {
+                routeHistory[id] = [];
+                routeLayers[id] = L.polyline([], {
+                    color: '#facc15',
+                    weight: 4,
+                    opacity: 0.9
+                }).addTo(map);
+            }
+
+            routeHistory[id].push([lat, lng]);
+            if (routeHistory[id].length > 80) {
+                routeHistory[id].shift();
+            }
+
+            routeLayers[id].setLatLngs(routeHistory[id]);
+
+            const totalPoints = routeHistory[id].length;
+            const start = routeHistory[id][0];
+            const end = routeHistory[id][totalPoints - 1];
+
+            if (start && end) {
+                const distanceKm = ((L.latLng(start).distanceTo(L.latLng(end)) / 1000)).toFixed(1);
+                routeSummaryEl.innerHTML = `
+                    <strong>Route:</strong> ${totalPoints} points tracked<br>
+                    <small>Last segment: ${distanceKm} km</small>
+                `;
+            }
+        }
+
+        async function fetchNewsContext() {
+            const feedUrl = 'https://api.rss2json.com/v1/api.json?rss_url=https://feeds.bbci.co.uk/news/world/rss.xml';
+
+            try {
+                const res = await fetch(feedUrl);
+                if (!res.ok) throw new Error('News feed unavailable');
+
+                const data = await res.json();
+                const articles = data.items ? data.items.slice(0, 4) : [];
+
+                if (!articles.length) {
+                    throw new Error('No news items');
+                }
+
+                const rendered = articles.map((item) => {
+                    const title = item.title || 'News update';
+                    const source = item.author || 'World News';
+                    return `
+                        <li>
+                            <a href="${item.link}" target="_blank" rel="noopener noreferrer">${title}</a>
+                            <small>${source}</small>
+                        </li>
+                    `;
+                }).join('');
+
+                newsFeedEl.innerHTML = `
+                    <strong>Related news:</strong>
+                    <ul class="news-list">${rendered}</ul>
+                `;
+            } catch (error) {
+                newsFeedEl.innerHTML = `
+                    <strong>Related news:</strong>
+                    <ul class="news-list"><li>Live context feed unavailable right now.</li></ul>
+                `;
+            }
+        }
 
         const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
 
         client.on('connect', () => {
             console.log('Connected to data stream.');
             client.subscribe('emapping/transponder/telemetry');
+            fetchNewsContext();
         });
 
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                const { id, lat, lng, speed } = data;
+                const { id, lat, lng, speed, timestamp } = data;
 
                 document.getElementById('live-data').innerHTML = `
                     <strong>Asset:</strong> ${id}<br>
                     <strong>Lat:</strong> ${lat.toFixed(5)}<br>
                     <strong>Lng:</strong> ${lng.toFixed(5)}<br>
-                    <strong>Speed:</strong> ${Math.round(speed * 3.6)} km/h
+                    <strong>Speed:</strong> ${Math.round((speed || 0) * 3.6)} km/h<br>
+                    <strong>Last ping:</strong> ${new Date(timestamp).toLocaleTimeString()}
                 `;
+
+                updateRouteHistory(id, lat, lng);
+                fetchLocationInfo(lat, lng);
 
                 if (markers[id]) {
                     markers[id].setLatLng([lat, lng]);
@@ -89,9 +300,9 @@
                     markers[id] = L.marker([lat, lng], { icon: vehicleIcon }).addTo(map)
                         .bindPopup(`<b>Asset ID:</b> ${id}<br><span style="color:gray;">Transponder Active</span>`)
                         .openPopup();
-
-                    map.setView([lat, lng], 16);
                 }
+
+                map.setView([lat, lng], 16);
             } catch (error) {
                 console.error('Invalid MQTT payload:', error);
             }

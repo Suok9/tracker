@@ -1,13 +1,13 @@
 # Tracker
 
-A lightweight vehicle tracking demo built with plain HTML, JavaScript, MQTT, and Leaflet.
+A lightweight vehicle tracking demo built with plain HTML, JavaScript, MQTT, Leaflet, OpenStreetMap reverse geocoding, and live news context.
 
 ## Overview
 
 This project contains two browser-based apps:
 
 - `transponder.html` — simulates a vehicle transponder that reads the browser GPS location and publishes telemetry to an MQTT topic.
-- `dashboard.html` — subscribes to the same MQTT topic and displays the asset on a live map.
+- `dashboard.html` — subscribes to the same MQTT topic and displays the asset on a live map with route history, location context, and related headline news.
 
 ## How it works
 
@@ -15,12 +15,13 @@ This project contains two browser-based apps:
 2. Click `Activate Transponder`.
 3. The browser sends GPS coordinates to the MQTT topic `emapping/transponder/telemetry`.
 4. Open `dashboard.html` in another tab or browser.
-5. The dashboard listens for telemetry and updates the vehicle marker in real time.
+5. The dashboard listens for telemetry, tracks the route, resolves the location, and shows live news context.
 
 ## Required access
 
 - GPS permission must be allowed in the browser.
 - A public MQTT broker is used for communication.
+- Reverse geocoding and live news feeds depend on third-party public services available from the browser.
 
 ## Run locally
 
@@ -47,11 +48,20 @@ Then open:
 emapping/transponder/telemetry
 ```
 
+## Included features
+
+- Live GPS telemetry
+- Real-time map tracking
+- Route history tracking
+- Reverse geocoded place context
+- Related news headlines from a public RSS feed
+
 ## Notes
 
 - This is a demo for learning and prototyping.
 - It is not production-grade tracking infrastructure.
-- The transponder currently identifies itself as `asset-vehicle-01`.
+- The transponder identifies itself as `asset-vehicle-01`.
+- Third-party services may be rate-limited or unavailable depending on browser/network conditions.
 
 ## Files
 
