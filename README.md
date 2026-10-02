@@ -18,6 +18,8 @@ This project contains a working browser-based tracking setup:
 - Reverse geocoded place names and addresses
 - News panel that can be opened or closed from the dashboard
 - Live fleet monitor panel can be hidden or shown
+- Multiple map layers: standard, satellite, and terrain
+- Tracked asset list with remove buttons
 - Real-time updates from the server without reloading the page
 
 ## How it works

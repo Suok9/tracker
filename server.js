@@ -46,10 +46,7 @@ function buildAssetRecord(data) {
     return null;
   }
 
-  const existing = assets.get(id) || {
-    id,
-    history: []
-  };
+  const existing = assets.get(id) || { id, history: [] };
 
   const next = {
     id,

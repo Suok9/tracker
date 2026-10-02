@@ -73,7 +73,7 @@
             border-top: 1px solid rgba(148, 163, 184, 0.2);
         }
 
-        .news-toggle, .panel-toggle {
+        .news-toggle, .panel-toggle, .layer-button {
             display: inline-block;
             margin-top: 10px;
             background: rgba(56, 189, 248, 0.12);
@@ -86,6 +86,13 @@
 
         .news-panel.hidden {
             display: none;
+        }
+
+        .layer-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
         }
 
         .news-list {
@@ -115,6 +122,31 @@
             margin-top: 4px;
         }
 
+        .asset-list {
+            list-style: none;
+            margin: 12px 0 0;
+            padding: 0;
+        }
+
+        .asset-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .asset-list button {
+            background: transparent;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: var(--text);
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 5px 8px;
+        }
+
         .vehicle-icon-style {
             filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4));
             transition: transform 0.2s linear;
@@ -128,6 +160,11 @@
         <div id="location-context" class="context-box panel-section"><strong>Location:</strong> awaiting signal...</div>
         <div id="route-summary" class="context-box panel-section"><strong>Route:</strong> no route yet.</div>
 
+        <div class="panel-section">
+            <strong>Tracked assets:</strong>
+            <ul id="assetList" class="asset-list"></ul>
+        </div>
+
         <div id="news-panel" class="news-panel">
             <div id="news-feed" class="context-box panel-section">
                 <strong>Related news:</strong>
@@ -139,16 +176,40 @@
             <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
             <button id="panelToggle" class="panel-toggle" type="button">Hide Panel</button>
         </div>
+
+        <div class="layer-controls">
+            <button class="layer-button" data-layer="standard">Standard</button>
+            <button class="layer-button" data-layer="satellite">Satellite</button>
+            <button class="layer-button" data-layer="terrain">Terrain</button>
+        </div>
     </div>
     <div id="map"></div>
 
     <script>
         const map = L.map('map').setView([20, 0], 3);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19
-        }).addTo(map);
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        });
+
+        const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM',
+            maxZoom: 17
+        });
+
+        const layers = {
+            standard: standardLayer,
+            satellite: satelliteLayer,
+            terrain: terrainLayer
+        };
+
+        standardLayer.addTo(map);
 
         const socket = io();
         const markers = {};
@@ -167,6 +228,7 @@
         const newsPanel = document.getElementById('news-panel');
         const panelToggleBtn = document.getElementById('panelToggle');
         const infoOverlay = document.getElementById('info-overlay');
+        const assetList = document.getElementById('assetList');
 
         newsToggleBtn.addEventListener('click', () => {
             const hidden = newsPanel.classList.toggle('hidden');
@@ -177,6 +239,51 @@
             const hidden = infoOverlay.classList.toggle('hidden');
             panelToggleBtn.textContent = hidden ? 'Show Panel' : 'Hide Panel';
         });
+
+        document.querySelectorAll('.layer-button').forEach((button) => {
+            button.addEventListener('click', () => {
+                const selected = button.dataset.layer;
+                Object.entries(layers).forEach(([name, layer]) => {
+                    if (name === selected) {
+                        if (!map.hasLayer(layer)) {
+                            layer.addTo(map);
+                        }
+                    } else if (map.hasLayer(layer)) {
+                        map.removeLayer(layer);
+                    }
+                });
+            });
+        });
+
+        function renderAssetList(assets) {
+            assetList.innerHTML = '';
+            assets.forEach((asset) => {
+                const li = document.createElement('li');
+                const label = document.createElement('span');
+                label.textContent = `${asset.label || asset.id} • ${asset.lat ? asset.lat.toFixed(4) : 'n/a'}`;
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', () => {
+                    if (markers[asset.id]) {
+                        map.removeLayer(markers[asset.id]);
+                        delete markers[asset.id];
+                    }
+                    if (routeLayers[asset.id]) {
+                        map.removeLayer(routeLayers[asset.id]);
+                        delete routeLayers[asset.id];
+                    }
+                    if (routeHistory[asset.id]) {
+                        delete routeHistory[asset.id];
+                    }
+                    socket.emit('asset:remove', { id: asset.id });
+                });
+
+                li.appendChild(label);
+                li.appendChild(removeButton);
+                assetList.appendChild(li);
+            });
+        }
 
         function formatHeading(rawText, fallback = 'Location') {
             return rawText && rawText.trim() ? rawText.trim() : fallback;
@@ -292,8 +399,10 @@
         });
 
         socket.on('fleet:state', (assets) => {
-            const assetList = Array.isArray(assets) ? assets : [];
-            assetList.forEach((asset) => {
+            const assetListData = Array.isArray(assets) ? assets : [];
+            renderAssetList(assetListData);
+
+            assetListData.forEach((asset) => {
                 const { id, label, lat, lng, speed, timestamp } = asset;
                 if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
                     return;
