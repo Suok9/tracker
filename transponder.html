@@ -53,7 +53,7 @@
 
     <div class="input-wrap">
         <label for="assetId">Asset ID</label><br>
-        <input id="assetId" type="text" placeholder="e.g. vehicle-02" value="vehicle-02" />
+        <input id="assetId" type="text" placeholder="Auto-generated A01" value="A01" />
     </div>
 
     <button class="btn" onclick="startTransponder()">Activate Transponder</button>
@@ -64,12 +64,21 @@
         const socket = io();
         let watchId = null;
 
+        function generateAutoId() {
+            const next = Number(localStorage.getItem('trackerNextAsset') || 1);
+            const id = `A${String(next).padStart(2, '0')}`;
+            localStorage.setItem('trackerNextAsset', String(next + 1));
+            return id;
+        }
+
         function updateStatus(message) {
             document.getElementById('status').innerText = message;
         }
 
         function startTransponder() {
-            const assetId = document.getElementById('assetId').value.trim() || 'vehicle-02';
+            const input = document.getElementById('assetId');
+            const assetId = (input.value || '').trim() || generateAutoId();
+            input.value = assetId;
             updateStatus('Status: Connecting to tracker...');
 
             socket.emit('transponder:register', { id: assetId, label: assetId });

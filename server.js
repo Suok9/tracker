@@ -14,6 +14,7 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 const assets = new Map();
+let nextAssetNumber = 1;
 
 app.use(express.static(__dirname));
 
@@ -25,9 +26,14 @@ app.get('/health', (req, res) => {
   });
 });
 
+function generateAssetId() {
+  const n = nextAssetNumber++;
+  return `A${String(n).padStart(2, '0')}`;
+}
+
 function normalizeAssetId(value) {
   const raw = String(value || '').trim();
-  if (!raw) return `asset-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  if (!raw) return generateAssetId();
   return raw;
 }
 
@@ -72,7 +78,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('transponder:register', ({ id, label } = {}) => {
-    const assetId = normalizeAssetId(id);
+    const assetId = normalizeAssetId(id || generateAssetId());
 
     if (!assets.has(assetId)) {
       assets.set(assetId, {

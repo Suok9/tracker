@@ -48,6 +48,10 @@
             backdrop-filter: blur(6px);
         }
 
+        #info-overlay.hidden {
+            display: none;
+        }
+
         h3 {
             margin: 0 0 12px 0;
             font-size: 1.2rem;
@@ -69,7 +73,7 @@
             border-top: 1px solid rgba(148, 163, 184, 0.2);
         }
 
-        .news-toggle {
+        .news-toggle, .panel-toggle {
             display: inline-block;
             margin-top: 10px;
             background: rgba(56, 189, 248, 0.12);
@@ -131,7 +135,10 @@
             </div>
         </div>
 
-        <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+            <button id="newsToggle" class="news-toggle" type="button">Hide News</button>
+            <button id="panelToggle" class="panel-toggle" type="button">Hide Panel</button>
+        </div>
     </div>
     <div id="map"></div>
 
@@ -158,10 +165,17 @@
 
         const newsToggleBtn = document.getElementById('newsToggle');
         const newsPanel = document.getElementById('news-panel');
+        const panelToggleBtn = document.getElementById('panelToggle');
+        const infoOverlay = document.getElementById('info-overlay');
 
         newsToggleBtn.addEventListener('click', () => {
             const hidden = newsPanel.classList.toggle('hidden');
             newsToggleBtn.textContent = hidden ? 'Show News' : 'Hide News';
+        });
+
+        panelToggleBtn.addEventListener('click', () => {
+            const hidden = infoOverlay.classList.toggle('hidden');
+            panelToggleBtn.textContent = hidden ? 'Show Panel' : 'Hide Panel';
         });
 
         function formatHeading(rawText, fallback = 'Location') {

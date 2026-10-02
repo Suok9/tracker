@@ -12,11 +12,12 @@ This project contains a working browser-based tracking setup:
 
 ## Features
 
-- Unique identifiers for each transponder
+- Auto-generated IDs in the format `A01`, `A02`, `A03`, etc.
 - Multiple transponder devices can register and be tracked simultaneously
 - Route history tracking per asset
 - Reverse geocoded place names and addresses
 - News panel that can be opened or closed from the dashboard
+- Live fleet monitor panel can be hidden or shown
 - Real-time updates from the server without reloading the page
 
 ## How it works
@@ -24,7 +25,7 @@ This project contains a working browser-based tracking setup:
 1. Install dependencies.
 2. Start the tracker server.
 3. Open `transponder.html` on a device with location access enabled.
-4. Enter a unique asset ID and click `Activate Transponder`.
+4. Click `Activate Transponder` to generate the next auto-ID.
 5. Open `dashboard.html` in another browser tab or device.
 6. The dashboard receives live updates from each device in real time.
 
@@ -57,4 +58,3 @@ Then open:
 - `server.js`
 - `transponder.html`
 - `dashboard.html`
-- `index.html`
