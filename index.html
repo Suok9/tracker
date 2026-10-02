@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracker - Live Vehicle Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #07111c;
+            --bg-light: #0f1c2e;
+            --accent: #38bdf8;
+            --accent-2: #facc15;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --success: #4ade80;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        header {
+            background: rgba(15, 28, 46, 0.6);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--muted);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #0ea5e9 100%);
+            color: #07111c;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(56, 189, 248, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 2px solid var(--accent);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+        }
+
+        .feature-card {
+            background: rgba(15, 28, 46, 0.4);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 12px;
+            padding: 30px;
+            backdrop-filter: blur(8px);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(56, 189, 248, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card h3 {
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-size: 1.3rem;
+        }
+
+        .feature-card p {
+            color: var(--muted);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin: 60px 0;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 2.2rem;
+            margin: 60px 0 30px;
+            color: var(--accent);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            background: rgba(15, 28, 46, 0.6);
+            border-top: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--muted);
+            margin-top: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .nav-links {
+                gap: 15px;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">🛰️ Tracker</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#apps">Apps</a></li>
+                <li><a href="https://github.com/Suok9/tracker" target="_blank">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Live Vehicle Tracking</h1>
+            <p>Real-time GPS telemetry, route history, location context, and live news feeds — all in your browser.</p>
+            <div class="cta-buttons">
+                <a href="transponder.html" class="btn btn-primary">Activate Transponder</a>
+                <a href="dashboard.html" class="btn btn-primary">Open Dashboard</a>
+                <a href="https://github.com/Suok9/tracker" class="btn btn-secondary" target="_blank">View on GitHub</a>
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📍</div>
+                <h3>Live GPS Tracking</h3>
+                <p>Real-time location updates broadcast via MQTT. Watch assets move on an interactive map.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛣️</div>
+                <h3>Route History</h3>
+                <p>Track complete movement trails. See distance traveled and segment breakdowns.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3>Place Context</h3>
+                <p>Reverse geocoding shows city, state, country, and detailed address for each location.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📰</div>
+                <h3>Live News Feed</h3>
+                <p>See related headlines and context from world news feeds in real time.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Zero Setup</h3>
+                <p>No backend, no database. Pure HTML + JavaScript. Open in any browser.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Open Source</h3>
+                <p>Built with public APIs and libraries. Full source available on GitHub.</p>
+            </div>
+        </section>
+
+        <section id="apps">
+            <h2 class="section-title">How to Use</h2>
+            
+            <div class="grid-2">
+                <div>
+                    <h3>🛰️ Transponder (GPS Sender)</h3>
+                    <p>Simulates a vehicle broadcasting GPS location data.</p>
+                    <ul style="margin-left: 20px; margin-top: 15px;">
+                        <li>Requires device location permission</li>
+                        <li>Sends coordinates via MQTT broker</li>
+                        <li>Displays real-time speed and coordinates</li>
+                    </ul>
+                    <p style="margin-top: 20px;"><strong>Best on:</strong> Mobile with GPS or desktop with location spoofing</p>
+                </div>
+                <div>
+                    <h3>🗺️ Dashboard (Map Receiver)</h3>
+                    <p>Listens for transponder data and displays it on a live map.</p>
+                    <ul style="margin-left: 20px; margin-top: 15px;">
+                        <li>Shows vehicle location with trail</li>
+                        <li>Reverse-geocodes the address</li>
+                        <li>Displays related news context</li>
+                        <li>Updates in real time</li>
+                    </ul>
+                    <p style="margin-top: 20px;"><strong>Best on:</strong> Desktop or tablet for full map view</p>
+                </div>
+            </div>
+
+            <h2 class="section-title">Quick Start</h2>
+            <p>Follow these steps to see the tracker in action:</p>
+            
+            <ol style="margin-left: 30px; margin-top: 20px; line-height: 2;">
+                <li>Open <strong>Transponder</strong> on a device with GPS enabled</li>
+                <li>Click "Activate Transponder"</li>
+                <li>Allow location access when prompted</li>
+                <li>Open <strong>Dashboard</strong> in another browser/tab</li>
+                <li>Watch the map update with your location in real time</li>
+            </ol>
+
+            <h2 class="section-title">Architecture</h2>
+            <div class="code-block">
+┌──────────────────────┐          MQTT Topic          ┌──────────────────────┐
+│  Transponder Page    │ ════════════════════════════ │   Dashboard Page     │
+│  (GPS Broadcast)     │  emapping/transponder/      │  (Live Map View)     │
+│                      │  telemetry                  │                      │
+│ • Device GPS         │          {json}             │ • Leaflet Map        │
+│ • Location tracking  │       [lat, lng, speed]     │ • Route History      │
+│ • MQTT Publish       │                             │ • Place Names        │
+└──────────────────────┘                             │ • News Headlines     │
+                                                     └──────────────────────┘
+            </div>
+
+            <h2 class="section-title">Technology Stack</h2>
+            <ul style="margin-left: 30px; line-height: 2;">
+                <li><strong>Mapping:</strong> Leaflet.js + OpenStreetMap</li>
+                <li><strong>Messaging:</strong> MQTT via HiveMQ public broker</li>
+                <li><strong>Geocoding:</strong> OpenStreetMap Nominatim (reverse geocoding)</li>
+                <li><strong>News:</strong> RSS2JSON bridge to BBC World News</li>
+                <li><strong>Frontend:</strong> Plain HTML, CSS, JavaScript (no build tools)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="section-title">Development</h2>
+            <p>To run the tracker locally:</p>
+            <div class="code-block">
+$ git clone https://github.com/Suok9/tracker.git
+$ cd tracker
+$ python -m http.server 8000
+            </div>
+            <p>Then open:</p>
+            <ul style="margin-left: 30px; margin-top: 15px;">
+                <li>http://localhost:8000/transponder.html</li>
+                <li>http://localhost:8000/dashboard.html</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Tracker Project | MIT License | <a href="https://github.com/Suok9/tracker" style="color: var(--accent);" target="_blank">View on GitHub</a></p>
+    </footer>
+</body>
+</html>
