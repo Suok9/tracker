@@ -1,69 +1,52 @@
 # Tracker
 
-A lightweight vehicle tracking demo built with plain HTML, JavaScript, MQTT, Leaflet, OpenStreetMap reverse geocoding, and live news context.
+A lightweight vehicle tracking demo built with Node.js, Express, Socket.IO, Leaflet, reverse geocoding, and live news context.
 
 ## Overview
 
-This project contains two browser-based apps:
+This project contains a working browser-based tracking setup:
 
-- `transponder.html` — simulates a vehicle transponder that reads the browser GPS location and publishes telemetry to an MQTT topic.
-- `dashboard.html` — subscribes to the same MQTT topic and displays the asset on a live map with route history, location context, and related headline news.
+- `transponder.html` — reads GPS data from the browser and streams telemetry to the server
+- `dashboard.html` — connects to the same server and renders the asset on a live map
+- `server.js` — lightweight Express + Socket.IO backend that relays telemetry in real time
 
 ## How it works
 
-1. Open `transponder.html` on a device with location access enabled.
-2. Click `Activate Transponder`.
-3. The browser sends GPS coordinates to the MQTT topic `emapping/transponder/telemetry`.
-4. Open `dashboard.html` in another tab or browser.
-5. The dashboard listens for telemetry, tracks the route, resolves the location, and shows live news context.
-
-## Required access
-
-- GPS permission must be allowed in the browser.
-- A public MQTT broker is used for communication.
-- Reverse geocoding and live news feeds depend on third-party public services available from the browser.
+1. Install dependencies.
+2. Start the tracker server.
+3. Open `transponder.html` on a device with location access enabled.
+4. Click `Activate Transponder`.
+5. Open `dashboard.html` in another browser tab or device.
+6. The dashboard receives live updates in real time and shows route history, place context, and news.
 
 ## Run locally
 
-Because these files are static HTML pages, you can either:
-
-- open them directly in a browser, or
-- serve the repository locally with a simple web server.
-
-Example using Python:
-
 ```bash
-cd tracker
-python -m http.server 8000
+npm install
+npm start
 ```
 
 Then open:
 
-- `http://localhost:8000/transponder.html`
-- `http://localhost:8000/dashboard.html`
+- `http://localhost:3000/transponder.html`
+- `http://localhost:3000/dashboard.html`
 
-## MQTT topic
+## Socket event flow
 
-```text
-emapping/transponder/telemetry
-```
-
-## Included features
-
-- Live GPS telemetry
-- Real-time map tracking
-- Route history tracking
-- Reverse geocoded place context
-- Related news headlines from a public RSS feed
+- Transponder emits: `transponder:position`
+- Server broadcasts: `fleet:update`
+- Dashboard listens for: `fleet:state` and `fleet:update`
 
 ## Notes
 
-- This is a demo for learning and prototyping.
-- It is not production-grade tracking infrastructure.
+- This is a working demo for learning and prototyping.
+- It is not production-grade fleet infrastructure.
+- Data is kept in memory on the server for the current runtime session.
 - The transponder identifies itself as `asset-vehicle-01`.
-- Third-party services may be rate-limited or unavailable depending on browser/network conditions.
 
 ## Files
 
+- `server.js`
 - `transponder.html`
 - `dashboard.html`
+- `index.html`

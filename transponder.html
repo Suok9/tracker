@@ -4,33 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Software Transponder</title>
-    <script src="https://unpkg.com/mqtt@5.11.1/dist/mqtt.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: Arial, sans-serif;
             text-align: center;
-            padding: 20px;
-            background: #1a1a1a;
-            color: #fff;
+            padding: 24px;
+            background: #101827;
+            color: #e5e7eb;
         }
         .btn {
-            background: #007bff;
+            background: #0ea5e9;
             border: none;
+            border-radius: 8px;
             color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 5px;
+            padding: 14px 30px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
+            margin-top: 18px;
         }
         .status {
             margin-top: 20px;
-            font-size: 1.2em;
-            color: #00ff00;
+            font-size: 1.2rem;
+            color: #4ade80;
         }
         #telemetry {
-            margin-top: 20px;
+            margin-top: 28px;
             font-size: 1.05rem;
-            line-height: 1.6;
+            line-height: 1.8;
         }
     </style>
 </head>
@@ -42,56 +44,54 @@
     <div id="telemetry"></div>
 
     <script>
-        let client;
-        const ASSET_ID = "asset-vehicle-01";
+        const socket = io();
+        const ASSET_ID = 'asset-vehicle-01';
+        let watchId = null;
+
+        function updateStatus(message) {
+            document.getElementById('status').innerText = message;
+        }
 
         function startTransponder() {
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = "Status: Connecting to network...";
+            updateStatus('Status: Connecting to tracker...');
 
-            client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
+            socket.emit('transponder:register', { id: ASSET_ID });
 
-            client.on('connect', () => {
-                statusEl.innerText = "Status: Transponder ACTIVE & Broadcasting";
+            if (!navigator.geolocation) {
+                updateStatus('Status: GPS not supported in this browser');
+                return;
+            }
 
-                if (navigator.geolocation) {
-                    navigator.geolocation.watchPosition(sendTelemetry, handleGPSFailure, {
-                        enableHighAccuracy: true,
-                        maximumAge: 0,
-                        timeout: 10000
-                    });
-                } else {
-                    alert("GPS not supported on this device.");
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const payload = {
+                        id: ASSET_ID,
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        speed: position.coords.speed || 0,
+                        timestamp: Date.now()
+                    };
+
+                    socket.emit('transponder:position', payload);
+
+                    document.getElementById('telemetry').innerHTML = `
+                        <p><strong>Asset ID:</strong> ${payload.id}</p>
+                        <p><strong>Lat:</strong> ${payload.lat.toFixed(5)}</p>
+                        <p><strong>Lng:</strong> ${payload.lng.toFixed(5)}</p>
+                        <p><strong>Speed:</strong> ${Math.round(payload.speed * 3.6)} km/h</p>
+                    `;
+
+                    updateStatus('Status: Transponder ACTIVE & Broadcasting');
+                },
+                (error) => {
+                    updateStatus(`Status: GPS Error: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
                 }
-            });
-
-            client.on('error', (err) => {
-                statusEl.innerText = `Status: MQTT error: ${err.message || err}`;
-            });
-        }
-
-        function sendTelemetry(position) {
-            if (!client) return;
-
-            const payload = {
-                id: ASSET_ID,
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                speed: position.coords.speed || 0,
-                timestamp: Date.now()
-            };
-
-            client.publish('emapping/transponder/telemetry', JSON.stringify(payload));
-
-            document.getElementById('telemetry').innerHTML = `
-                <p><strong>Lat:</strong> ${payload.lat.toFixed(5)}</p>
-                <p><strong>Lng:</strong> ${payload.lng.toFixed(5)}</p>
-                <p><strong>Speed:</strong> ${Math.round(payload.speed * 3.6)} km/h</p>
-            `;
-        }
-
-        function handleGPSFailure(err) {
-            document.getElementById('status').innerText = `GPS Error: ${err.message}`;
+            );
         }
     </script>
 </body>

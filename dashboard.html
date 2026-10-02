@@ -7,7 +7,7 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/mqtt@5.11.1/dist/mqtt.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
     <style>
         :root {
@@ -18,7 +18,6 @@
             --accent-2: #facc15;
             --text: #e2e8f0;
             --muted: #94a3b8;
-            --success: #4ade80;
         }
 
         html, body {
@@ -40,7 +39,7 @@
             top: 14px;
             right: 14px;
             z-index: 1000;
-            width: min(350px, calc(100vw - 28px));
+            width: min(360px, calc(100vw - 28px));
             background: var(--panel);
             border: 1px solid var(--panel-border);
             border-radius: 14px;
@@ -54,20 +53,20 @@
             font-size: 1.2rem;
         }
 
-        .panel-section {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(148, 163, 184, 0.2);
-        }
-
         .context-box {
             font-size: 0.92rem;
-            line-height: 1.55;
+            line-height: 1.5;
             color: var(--text);
         }
 
         .context-box strong {
             color: var(--accent);
+        }
+
+        .panel-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
         }
 
         .news-list {
@@ -80,11 +79,6 @@
             margin-bottom: 10px;
             padding-bottom: 8px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-        }
-
-        .news-list li:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
         }
 
         .news-list a {
@@ -112,23 +106,13 @@
     <div id="info-overlay">
         <h3>🚔 Live Fleet Monitor</h3>
         <div id="live-data" class="context-box">Waiting for transponder ping...</div>
-
-        <div id="location-context" class="context-box panel-section">
-            <strong>Location:</strong> awaiting signal...
-        </div>
-
-        <div id="route-summary" class="context-box panel-section">
-            <strong>Route:</strong> no route yet.
-        </div>
-
+        <div id="location-context" class="context-box panel-section"><strong>Location:</strong> awaiting signal...</div>
+        <div id="route-summary" class="context-box panel-section"><strong>Route:</strong> no route yet.</div>
         <div id="news-feed" class="context-box panel-section">
             <strong>Related news:</strong>
-            <ul class="news-list">
-                <li>Connecting live context feed...</li>
-            </ul>
+            <ul class="news-list"><li>Connecting live context feed...</li></ul>
         </div>
     </div>
-
     <div id="map"></div>
 
     <script>
@@ -140,6 +124,11 @@
             maxZoom: 20
         }).addTo(map);
 
+        const socket = io();
+        const markers = {};
+        const routeHistory = {};
+        const routeLayers = {};
+
         const vehicleIcon = L.divIcon({
             html: '<div style="width:18px;height:18px;border-radius:50%;background:#38bdf8;border:3px solid white;box-shadow:0 0 10px rgba(56,189,248,0.85);"></div>',
             className: 'vehicle-icon-style',
@@ -147,14 +136,6 @@
             iconAnchor: [9, 9],
             popupAnchor: [0, -12]
         });
-
-        const markers = {};
-        const routeHistory = {};
-        const routeLayers = {};
-
-        const locationContextEl = document.getElementById('location-context');
-        const routeSummaryEl = document.getElementById('route-summary');
-        const newsFeedEl = document.getElementById('news-feed');
 
         function formatHeading(rawText, fallback = 'Location') {
             return rawText && rawText.trim() ? rawText.trim() : fallback;
@@ -179,9 +160,7 @@
 
             try {
                 const response = await fetch(url, {
-                    headers: {
-                        'Accept-Language': 'en'
-                    }
+                    headers: { 'Accept-Language': 'en' }
                 });
 
                 if (!response.ok) {
@@ -192,12 +171,12 @@
                 const label = getLocationLabel(data.address || {});
                 const raw = data.display_name || label;
 
-                locationContextEl.innerHTML = `
+                document.getElementById('location-context').innerHTML = `
                     <strong>Location:</strong> ${formatHeading(label, raw)}<br>
                     <small>${raw}</small>
                 `;
             } catch (error) {
-                locationContextEl.innerHTML = `
+                document.getElementById('location-context').innerHTML = `
                     <strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}
                 `;
             }
@@ -226,7 +205,7 @@
 
             if (start && end) {
                 const distanceKm = ((L.latLng(start).distanceTo(L.latLng(end)) / 1000)).toFixed(1);
-                routeSummaryEl.innerHTML = `
+                document.getElementById('route-summary').innerHTML = `
                     <strong>Route:</strong> ${totalPoints} points tracked<br>
                     <small>Last segment: ${distanceKm} km</small>
                 `;
@@ -247,48 +226,44 @@
                     throw new Error('No news items');
                 }
 
-                const rendered = articles.map((item) => {
-                    const title = item.title || 'News update';
-                    const source = item.author || 'World News';
-                    return `
-                        <li>
-                            <a href="${item.link}" target="_blank" rel="noopener noreferrer">${title}</a>
-                            <small>${source}</small>
-                        </li>
-                    `;
-                }).join('');
+                const rendered = articles.map((item) => `
+                    <li>
+                        <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title || 'News update'}</a>
+                        <small>${item.author || 'World News'}</small>
+                    </li>
+                `).join('');
 
-                newsFeedEl.innerHTML = `
+                document.getElementById('news-feed').innerHTML = `
                     <strong>Related news:</strong>
                     <ul class="news-list">${rendered}</ul>
                 `;
             } catch (error) {
-                newsFeedEl.innerHTML = `
+                document.getElementById('news-feed').innerHTML = `
                     <strong>Related news:</strong>
                     <ul class="news-list"><li>Live context feed unavailable right now.</li></ul>
                 `;
             }
         }
 
-        const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
-
-        client.on('connect', () => {
-            console.log('Connected to data stream.');
-            client.subscribe('emapping/transponder/telemetry');
+        socket.on('connect', () => {
+            socket.emit('dashboard:subscribe');
             fetchNewsContext();
         });
 
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                const { id, lat, lng, speed, timestamp } = data;
+        socket.on('fleet:state', (assets) => {
+            const assetList = Array.isArray(assets) ? assets : [];
+            assetList.forEach((asset) => {
+                const { id, lat, lng, speed, timestamp } = asset;
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                    return;
+                }
 
                 document.getElementById('live-data').innerHTML = `
                     <strong>Asset:</strong> ${id}<br>
                     <strong>Lat:</strong> ${lat.toFixed(5)}<br>
                     <strong>Lng:</strong> ${lng.toFixed(5)}<br>
                     <strong>Speed:</strong> ${Math.round((speed || 0) * 3.6)} km/h<br>
-                    <strong>Last ping:</strong> ${new Date(timestamp).toLocaleTimeString()}
+                    <strong>Last ping:</strong> ${new Date(timestamp || Date.now()).toLocaleTimeString()}
                 `;
 
                 updateRouteHistory(id, lat, lng);
@@ -303,9 +278,7 @@
                 }
 
                 map.setView([lat, lng], 16);
-            } catch (error) {
-                console.error('Invalid MQTT payload:', error);
-            }
+            });
         });
     </script>
 </body>
