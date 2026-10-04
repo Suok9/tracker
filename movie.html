@@ -265,10 +265,6 @@
   </main>
 
   <script>
-    /*
-      ADD / CHANGE EPISODES HERE.
-      The three Drive links supplied are already inserted.
-    */
     const episodes = [
       {
         number: 1,
@@ -300,7 +296,9 @@
     const keyTime = driveId => `drivePlayer:time:${driveId}`;
 
     function sourceFor(ep) {
-      return `https://drive.google.com/uc?export=download&id=${ep.driveId}`;
+      // Use the actual Google Drive file ID, not the public view URL.
+      // This is the direct media link that works on static hosting like GitHub Pages.
+      return `https://drive.google.com/uc?export=view&id=${ep.driveId}`;
     }
 
     function formatTime(seconds) {
