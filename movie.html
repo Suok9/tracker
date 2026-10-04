@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>My Episode Player</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #090b10;
+      --panel: #11151d;
+      --panel2: #171c25;
+      --text: #f4f6f8;
+      --muted: #9ca6b5;
+      --accent: #6ea8ff;
+      --accent-2: #83d1a9;
+      --border: #252c38;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #0c0f15;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 1250px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 1250px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .player-wrap {
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 75vh;
+      background: #000;
+      object-fit: contain;
+    }
+
+    .info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0 18px;
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .resume {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
+      padding: 11px 15px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    button:hover {
+      background: #202735;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #08101e;
+      border-color: var(--accent);
+    }
+
+    .secondary {
+      background: rgba(131, 209, 169, 0.12);
+      border-color: rgba(131, 209, 169, 0.5);
+      color: var(--text);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px;
+    }
+
+    .panel h2 {
+      font-size: 16px;
+      margin: 0 0 12px;
+    }
+
+    .episodes {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 500px;
+      overflow: auto;
+    }
+
+    .ep {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 9px;
+    }
+
+    .ep.active {
+      background: #202938;
+      border-color: #35445a;
+    }
+
+    .ep-num {
+      min-width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: #202631;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .ep-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .progress {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 42px;
+      text-align: right;
+    }
+
+    .notice {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    @media (max-width: 850px) {
+      main {
+        padding: 12px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .info {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .panel {
+        border-radius: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>🎬 My Episode Player</h1>
+      <div class="status" id="status">Loading…</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="layout">
+      <section>
+        <div class="player-wrap">
+          <video id="player" controls playsinline preload="metadata"></video>
+        </div>
+
+        <div class="info">
+          <div>
+            <div class="title" id="title">Loading episode…</div>
+            <div class="resume" id="resume"></div>
+          </div>
+
+          <div class="controls">
+            <button id="prev">← Previous</button>
+            <button class="primary" id="next">Next →</button>
+            <button class="secondary" id="restart">Watch from start</button>
+            <button id="full">Fullscreen</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Episodes</h2>
+        <div class="episodes" id="episodes"></div>
+        <div class="notice">
+          Your last episode and playback position are saved on this device.
+          When an episode finishes, the next episode is selected automatically.
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    /*
+      ADD / CHANGE EPISODES HERE.
+      The three Drive links supplied are already inserted.
+    */
+    const episodes = [
+      {
+        number: 1,
+        name: "Episode 1",
+        driveId: "1nvuww0SVtwlUMtlDpJpvhE5L95SCYl4k"
+      },
+      {
+        number: 2,
+        name: "Episode 2",
+        driveId: "1Sx5eYl0xrkiOBbPqx3A_HXTGJO5rJvPX"
+      },
+      {
+        number: 3,
+        name: "Episode 3",
+        driveId: "1wfpobN5dQMzLqkA0peQ1tKOCX_pd5_h-"
+      }
+    ].sort((a, b) => a.number - b.number);
+
+    const player = document.getElementById("player");
+    const title = document.getElementById("title");
+    const resume = document.getElementById("resume");
+    const list = document.getElementById("episodes");
+    const status = document.getElementById("status");
+
+    let currentIndex = 0;
+    let saveTimer = null;
+
+    const keyEpisode = "drivePlayer:lastEpisode";
+    const keyTime = driveId => `drivePlayer:time:${driveId}`;
+
+    function sourceFor(ep) {
+      return `https://drive.google.com/uc?export=download&id=${ep.driveId}`;
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds)) return "0:00";
+      seconds = Math.max(0, Math.floor(seconds));
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+
+      return h
+        ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+        : `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function renderList() {
+      list.innerHTML = "";
+
+      episodes.forEach((ep, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ep" + (i === currentIndex ? " active" : "");
+        btn.innerHTML = `
+          <span class="ep-num">${ep.number}</span>
+          <span class="ep-name">${escapeHtml(ep.name)}</span>
+          <span class="progress" id="p-${i}"></span>
+        `;
+        btn.onclick = () => loadEpisode(i, true);
+        list.appendChild(btn);
+      });
+
+      updateProgressLabels();
+    }
+
+    function updateProgressLabels() {
+      episodes.forEach((ep, i) => {
+        const el = document.getElementById(`p-${i}`);
+        if (!el) return;
+
+        const t = Number(localStorage.getItem(keyTime(ep.driveId)) || 0);
+        el.textContent = t > 5 ? formatTime(t) : "";
+      });
+    }
+
+    function loadEpisode(index, userSelected = false) {
+      if (index < 0 || index >= episodes.length) return;
+
+      currentIndex = index;
+      const ep = episodes[index];
+      localStorage.setItem(keyEpisode, String(index));
+
+      player.pause();
+      player.src = sourceFor(ep);
+      player.load();
+
+      title.textContent = `Episode ${ep.number}`;
+      status.textContent = `${index + 1} of ${episodes.length}`;
+
+      const saved = Number(localStorage.getItem(keyTime(ep.driveId)) || 0);
+      resume.textContent = saved > 5 ? `Resume from ${formatTime(saved)}` : "Not watched yet";
+
+      renderList();
+
+      const onReady = () => {
+        if (saved > 5 && saved < player.duration - 5) {
+          try {
+            player.currentTime = saved;
+          } catch (e) {}
+        }
+        player.removeEventListener("loadedmetadata", onReady);
+      };
+
+      player.addEventListener("loadedmetadata", onReady);
+
+      if (userSelected) {
+        player.play().catch(() => {});
+      }
+    }
+
+    function savePosition() {
+      if (!player.src || !Number.isFinite(player.currentTime) || player.currentTime < 2) return;
+
+      const currentEp = episodes[currentIndex];
+      if (!currentEp) return;
+
+      localStorage.setItem(keyTime(currentEp.driveId), String(Math.floor(player.currentTime)));
+      updateProgressLabels();
+      resume.textContent = `Resume from ${formatTime(player.currentTime)}`;
+    }
+
+    player.addEventListener("timeupdate", () => {
+      if (!saveTimer) {
+        saveTimer = setTimeout(() => {
+          saveTimer = null;
+          savePosition();
+        }, 1000);
+      }
+    });
+
+    player.addEventListener("pause", savePosition);
+    player.addEventListener("pagehide", savePosition);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) savePosition();
+    });
+
+    player.addEventListener("ended", () => {
+      savePosition();
+
+      if (currentIndex < episodes.length - 1) {
+        loadEpisode(currentIndex + 1, true);
+      } else {
+        resume.textContent = "Series complete.";
+      }
+    });
+
+    document.getElementById("prev").onclick = () => {
+      if (currentIndex > 0) loadEpisode(currentIndex - 1, true);
+    };
+
+    document.getElementById("next").onclick = () => {
+      if (currentIndex < episodes.length - 1) loadEpisode(currentIndex + 1, true);
+    };
+
+    document.getElementById("restart").onclick = () => {
+      player.currentTime = 0;
+      player.play().catch(() => {});
+      savePosition();
+    };
+
+    document.getElementById("full").onclick = () => {
+      if (player.requestFullscreen) player.requestFullscreen();
+      else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+    };
+
+    renderList();
+
+    let savedIndex = Number(localStorage.getItem(keyEpisode));
+    if (!Number.isInteger(savedIndex) || savedIndex < 0 || savedIndex >= episodes.length) {
+      savedIndex = 0;
+    }
+
+    loadEpisode(savedIndex, false);
+  </script>
+</body>
+</html>
